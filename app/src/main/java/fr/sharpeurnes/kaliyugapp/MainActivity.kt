@@ -3,45 +3,600 @@ package fr.sharpeurnes.kaliyugapp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import fr.sharpeurnes.kaliyugapp.ui.theme.KaliyugAppTheme
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.URL
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
-            KaliyugAppTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+            MyAppTheme {
+                MainScreen()
             }
         }
     }
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
+fun MyAppTheme(content: @Composable () -> Unit) {
+    val darkColors = darkColorScheme(
+        primary = Color(0xFF6C63FF),
+        secondary = Color(0xFF03DAC6),
+        background = Color(0xFF121212),
+        surface = Color(0xFF1F1F1F),
+        onPrimary = Color.White,
+        onSecondary = Color.Black,
+        onBackground = Color.White,
+        onSurface = Color.White
+    )
+
+    MaterialTheme(
+        colorScheme = darkColors,
+        content = content
     )
 }
 
-@Preview(showBackground = true)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GreetingPreview() {
-    KaliyugAppTheme {
-        Greeting("Android")
+fun MainScreen() {
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+
+    val screenWidth = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val drawerWidth = 280.dp
+
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val drawerWidthPx = with(density) { drawerWidth.toPx() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        // Détecter si le swipe commence près du bord gauche
+                        if (offset.x < 50.dp.toPx() && drawerState.isClosed) {
+                            dragOffset = 0f
+                        }
+                    },
+                    onDragEnd = {
+                        scope.launch {
+                            if (drawerState.isClosed && dragOffset > drawerWidthPx / 3) {
+                                drawerState.open()
+                            }
+                            dragOffset = 0f
+                        }
+                    }
+                ) { _, dragAmount ->
+                    if (drawerState.isClosed && dragAmount.x > 0) {
+                        dragOffset = (dragOffset + dragAmount.x).coerceAtMost(drawerWidthPx)
+                    }
+                }
+            }
+    ) {
+        // Main Content
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Header
+            TopAppBar(
+                title = {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "KaliyugApp",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                drawerState.open()
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Profile",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = { /* Settings action */ }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+
+            // Main Content Area
+            MainContentArea()
+
+            // Bottom Navigation
+            BottomNavigation()
+        }
+
+        // Drawer
+        if (drawerState.isOpen) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(10f)
+            ) {
+                // Drawer Content
+                Surface(
+                    modifier = Modifier
+                        .width(drawerWidth)
+                        .fillMaxHeight(),
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 16.dp
+                ) {
+                    DrawerContent(
+                        onCloseDrawer = {
+                            scope.launch {
+                                drawerState.close()
+                            }
+                        }
+                    )
+                }
+
+                // Overlay to close drawer
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f))
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragEnd = {
+                                    scope.launch {
+                                        if (dragOffset < -drawerWidthPx / 3) {
+                                            drawerState.close()
+                                        } else {
+                                            dragOffset = 0f
+                                        }
+                                    }
+                                }
+                            ) { _, dragAmount ->
+                                if (dragAmount.x < 0) {
+                                    dragOffset = (dragOffset + dragAmount.x).coerceAtLeast(-drawerWidthPx)
+                                }
+                            }
+                        }
+                        .clickable {
+                            scope.launch {
+                                drawerState.close()
+                            }
+                        }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MainContentArea() {
+    var topics by remember { mutableStateOf<List<Topic>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    // Charger les données au démarrage
+    LaunchedEffect(Unit) {
+        try {
+            val fetchedTopics = fetchTopics()
+            topics = fetchedTopics
+            isLoading = false
+        } catch (e: Exception) {
+            error = e.message
+            isLoading = false
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            error != null -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Erreur: $error",
+                        color = Color.Red,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            else -> {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(topics) { topic ->
+                        TopicCard(topic = topic)
+                    }
+                }
+            }
+        }
+    }
+}
+
+data class Topic(
+    val title: String,
+    val author: String,
+    val replies: Int,
+    val lastActivity: String
+)
+
+suspend fun fetchTopics(): List<Topic> = withContext(Dispatchers.IO) {
+    try {
+        val url = "https://api.jeuxvideo.com/forums/0-51-0-1-0-1-0-blabla-18-25-ans.htm"
+        val jsonString = URL(url).readText()
+        val jsonObject = JSONObject(jsonString)
+
+        // 🔧 PERSONNALISATION REQUISE : Adaptez cette partie selon la structure réelle de l'API
+        val topics = mutableListOf<Topic>()
+
+        // Exemple de parsing - À ADAPTER selon votre API
+        val topicsArray = jsonObject.optJSONArray("topics") ?: return@withContext getTestTopics()
+
+        for (i in 0 until topicsArray.length()) {
+            val topicObj = topicsArray.getJSONObject(i)
+            topics.add(
+                Topic(
+                    title = topicObj.optString("title", "Titre non disponible"),
+                    author = topicObj.optString("author", "Auteur inconnu"),
+                    replies = topicObj.optInt("replies", 0),
+                    lastActivity = topicObj.optString("lastActivity", "Pas d'activité")
+                )
+            )
+        }
+
+        topics
+    } catch (e: Exception) {
+        // Pour les tests, retourner des données factices
+        getTestTopics()
+    }
+}
+
+fun getTestTopics(): List<Topic> {
+    return listOf(
+        Topic("Modération ultime pas nous", "Moderation51", 8, "20/04/2023"),
+        Topic("Règles du forum", "odoki", 0, "08/11/2022"),
+        Topic("J'annonce mon grand retour sur le forum blabla 18-25", "Seuritima", 3, "21:20:33"),
+        Topic("Je loue des comptes jvc premium", "Kheyousanssel", 7, "21:20:33"),
+        Topic("Chaud: Brigitte a mis une PATATE à Macron dans l'avion", "revolutionin", 1891, "21:20:32"),
+        Topic("[NOFAKE] je suis à kaboul, posez vos questions", "tournevistorx", 35, "21:20:32"),
+        Topic("[CANAL+ FOOT] 🏆 🧤 Finale de Conference League 🏆 🧤 🟢 Betis Seville vs Chelsea🔵", "AftynRoseENT", 190, "21:20:32"),
+        Topic("[MARLOU] WEEK END de 4 JOURS, ça BOIT QUOI ce SOIR ?", "JackUltraCity", 73, "21:20:32")
+    )
+}
+
+@Composable
+fun TopicCard(topic: Topic) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { /* Action au clic sur le topic */ },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Titre du topic
+            Text(
+                text = topic.title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Informations du topic
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Auteur
+                Text(
+                    text = "Par ${topic.author}",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+
+                // Nombre de réponses
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Réponses",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${topic.replies}",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Dernière activité
+            Text(
+                text = "Dernière activité: ${topic.lastActivity}",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+        }
+    }
+}
+
+@Composable
+fun DrawerContent(onCloseDrawer: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        // Header du drawer
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Menu",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            IconButton(onClick = onCloseDrawer) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Fermer",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        // Profile section
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Profile",
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .padding(8.dp),
+                    tint = Color.White
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Utilisateur",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "user@example.com",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+
+        // Menu items
+        val menuItems = listOf(
+            "Accueil" to Icons.Default.Home,
+            "Profil" to Icons.Default.Person,
+            "Paramètres" to Icons.Default.Settings,
+            "Notifications" to Icons.Default.Notifications,
+            "Aide" to Icons.Default.Info
+        )
+
+        menuItems.forEach { (title, icon) ->
+            DrawerMenuItem(
+                title = title,
+                icon = icon,
+                onClick = { /* Handle menu item click */ }
+            )
+        }
+    }
+}
+
+@Composable
+fun DrawerMenuItem(
+    title: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 8.dp)
+            .clip(RoundedCornerShape(8.dp)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = title,
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = title,
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+fun BottomNavigation() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            val bottomItems = listOf(
+                Icons.Default.Home,
+                Icons.Default.Search,
+                Icons.Default.Favorite,
+                Icons.Default.Person
+            )
+
+            bottomItems.forEach { icon ->
+                IconButton(
+                    onClick = { /* Handle bottom nav click */ },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
     }
 }
