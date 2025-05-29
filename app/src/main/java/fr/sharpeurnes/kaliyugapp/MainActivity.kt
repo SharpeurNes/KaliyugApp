@@ -71,19 +71,28 @@ import androidx.compose.ui.zIndex
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.URL
+import android.util.Log
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.*
+import org.jsoup.Jsoup
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MyAppTheme {
-                MainScreen()
+                MyApp()
             }
         }
     }
 }
+
+var selectedTopic = UnTopic("Imagine le titre il est grave long aya", "AuteurTest", 10, "01:01:01")
 
 @Composable
 fun MyAppTheme(content: @Composable () -> Unit) {
@@ -104,9 +113,32 @@ fun MyAppTheme(content: @Composable () -> Unit) {
     )
 }
 
+@Composable
+fun MyApp(){
+    val navController = rememberNavController()
+
+    NavHost(
+        navController = navController,
+        startDestination = "mainContent",
+        modifier = Modifier.fillMaxSize()
+    ){
+        composable("mainContent"){
+            MainScreen(
+                onNavigateToTopicView = {
+                    navController.navigate("topicView/")
+                }
+            )
+        }
+        composable("topicView/"){ backStackEntry ->
+            TopicWindow() { navController.popBackStack() }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(onNavigateToTopicView: () -> Unit) {
+
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
@@ -117,6 +149,8 @@ fun MainScreen() {
 
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val drawerWidthPx = with(density) { drawerWidth.toPx() }
+
+    var refreshTrigger by remember { mutableStateOf(0)}
 
     Box(
         modifier = Modifier
@@ -145,6 +179,7 @@ fun MainScreen() {
                 }
             }
     ) {
+
         // Main Content
         Column(
             modifier = Modifier.fillMaxSize()
@@ -184,6 +219,18 @@ fun MainScreen() {
                 },
                 actions = {
                     IconButton(
+                        onClick = {
+                            refreshTrigger++
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    IconButton(
                         onClick = { /* Settings action */ }
                     ) {
                         Icon(
@@ -199,7 +246,12 @@ fun MainScreen() {
             )
 
             // Main Content Area
-            MainContentArea()
+            MainContentArea(
+                onNavigateToTopicView = {
+                    onNavigateToTopicView()
+                },
+                refreshTrigger = refreshTrigger
+            )
 
             // Bottom Navigation
             BottomNavigation()
@@ -247,7 +299,8 @@ fun MainScreen() {
                                 }
                             ) { _, dragAmount ->
                                 if (dragAmount.x < 0) {
-                                    dragOffset = (dragOffset + dragAmount.x).coerceAtLeast(-drawerWidthPx)
+                                    dragOffset =
+                                        (dragOffset + dragAmount.x).coerceAtLeast(-drawerWidthPx)
                                 }
                             }
                         }
@@ -262,38 +315,66 @@ fun MainScreen() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainContentArea() {
-    var topics by remember { mutableStateOf<List<Topic>>(emptyList()) }
+fun MainContentArea(onNavigateToTopicView: () -> Unit, refreshTrigger: Int) {
+
+    var topics by remember { mutableStateOf<List<UnTopic>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var isRefreshing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // Charger les données au démarrage
-    LaunchedEffect(Unit) {
+
+
+    // Fonction pour charger les données
+    suspend fun loadTopics() {
         try {
             val fetchedTopics = fetchTopics()
             topics = fetchedTopics
-            isLoading = false
+            error = null
         } catch (e: Exception) {
             error = e.message
-            isLoading = false
         }
     }
 
-    Box(
+    // Charger les données au démarrage
+    LaunchedEffect(Unit) {
+
+        loadTopics()
+        isLoading = false
+    }
+
+    LaunchedEffect(refreshTrigger) {
+        isRefreshing = true
+        loadTopics()
+        isRefreshing = false
+    }
+
+
+    // Fonction de refresh
+    fun onRefresh() {
+        isRefreshing = true
+        CoroutineScope(Dispatchers.IO).launch {
+            loadTopics()
+            isRefreshing = false
+        }
+    }
+
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { onRefresh() },
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .padding(16.dp)
     ) {
+
         when {
             isLoading -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary
-                    )
+
                 }
             }
 
@@ -314,8 +395,14 @@ fun MainContentArea() {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+
                     items(topics) { topic ->
-                        TopicCard(topic = topic)
+                        TopicCard(
+                            topic = topic,
+                            onNavigateToTopicView = {
+                                onNavigateToTopicView()
+                            }
+                        )
                     }
                 }
             }
@@ -323,63 +410,81 @@ fun MainContentArea() {
     }
 }
 
-data class Topic(
+data class UnTopic(
     val title: String,
     val author: String,
     val replies: Int,
     val lastActivity: String
 )
 
-suspend fun fetchTopics(): List<Topic> = withContext(Dispatchers.IO) {
+
+//ICI QU'ON BOSSE
+suspend fun fetchTopics(): List<UnTopic> = withContext(Dispatchers.IO) {
     try {
+        Log.d("SHARP", "Debut du try")
         val url = "https://api.jeuxvideo.com/forums/0-51-0-1-0-1-0-blabla-18-25-ans.htm"
-        val jsonString = URL(url).readText()
-        val jsonObject = JSONObject(jsonString)
+        val doc = Jsoup.connect(url)
+            .userAgent("Mozilla/5.0 (Android)")  // Pour éviter certains blocages
+            .get()
 
-        // 🔧 PERSONNALISATION REQUISE : Adaptez cette partie selon la structure réelle de l'API
-        val topics = mutableListOf<Topic>()
+        val topics = mutableListOf<UnTopic>()
 
-        // Exemple de parsing - À ADAPTER selon votre API
-        val topicsArray = jsonObject.optJSONArray("topics") ?: return@withContext getTestTopics()
+        // Récupère tous les div.topic-inner dans ul.liste-topics
+        val topicElements = doc.select("ul.liste-topics div.topic-inner")
 
-        for (i in 0 until topicsArray.length()) {
-            val topicObj = topicsArray.getJSONObject(i)
+        for (topicElement in topicElements) {
+            val title = topicElement.selectFirst("div.titre-topic")?.text() ?: "Titre non disponible"
+
+            val replyRegex = Regex("""\((\d+)\)$""")
+            val replyMatch = replyRegex.find(title)
+            val replyNombre = replyMatch?.groups?.get(1)?.value?.toInt()  ?: 0
+
+            val cleanTitle = title.replace(replyRegex, "").trim()
+
+            val author = topicElement.selectFirst("span.auteur")?.text() ?: "Auteur"
+            val date = topicElement.selectFirst("time.date-post-topic")?.text() ?: "00/00/00"
+
+
             topics.add(
-                Topic(
-                    title = topicObj.optString("title", "Titre non disponible"),
-                    author = topicObj.optString("author", "Auteur inconnu"),
-                    replies = topicObj.optInt("replies", 0),
-                    lastActivity = topicObj.optString("lastActivity", "Pas d'activité")
+                UnTopic(
+                    title = cleanTitle,
+                    author = author,
+                    replies = replyNombre,
+                    lastActivity = date
                 )
             )
         }
 
         topics
     } catch (e: Exception) {
-        // Pour les tests, retourner des données factices
-        getTestTopics()
+        Log.e("SHARP", "Erreur loading topics: ${e.message}")
+        getTestTopics()  // ta fonction fallback
     }
 }
 
-fun getTestTopics(): List<Topic> {
+
+fun getTestTopics(): List<UnTopic> {
     return listOf(
-        Topic("Modération ultime pas nous", "Moderation51", 8, "20/04/2023"),
-        Topic("Règles du forum", "odoki", 0, "08/11/2022"),
-        Topic("J'annonce mon grand retour sur le forum blabla 18-25", "Seuritima", 3, "21:20:33"),
-        Topic("Je loue des comptes jvc premium", "Kheyousanssel", 7, "21:20:33"),
-        Topic("Chaud: Brigitte a mis une PATATE à Macron dans l'avion", "revolutionin", 1891, "21:20:32"),
-        Topic("[NOFAKE] je suis à kaboul, posez vos questions", "tournevistorx", 35, "21:20:32"),
-        Topic("[CANAL+ FOOT] 🏆 🧤 Finale de Conference League 🏆 🧤 🟢 Betis Seville vs Chelsea🔵", "AftynRoseENT", 190, "21:20:32"),
-        Topic("[MARLOU] WEEK END de 4 JOURS, ça BOIT QUOI ce SOIR ?", "JackUltraCity", 73, "21:20:32")
+        UnTopic("Topic de test", "Sharpeur", 8, "29/09/2025"),
+        UnTopic("Règles du forum", "odoki", 0, "08/11/2022"),
+        UnTopic("J'annonce mon grand retour sur le forum blabla 18-25", "Seuritima", 3, "21:20:33"),
+        UnTopic("Je loue des comptes jvc premium", "Kheyousanssel", 7, "21:20:33"),
+        UnTopic("Chaud: Brigitte a mis une PATATE à Macron dans l'avion", "revolutionin", 1891, "21:20:32"),
+        UnTopic("[NOFAKE] je suis à kaboul, posez vos questions", "tournevistorx", 35, "21:20:32"),
+        UnTopic("[CANAL+ FOOT] 🏆 🧤 Finale de Conference League 🏆 🧤 🟢 Betis Seville vs Chelsea🔵", "AftynRoseENT", 190, "21:20:32"),
+        UnTopic("[MARLOU] WEEK END de 4 JOURS, ça BOIT QUOI ce SOIR ?", "JackUltraCity", 73, "21:20:32")
     )
 }
 
 @Composable
-fun TopicCard(topic: Topic) {
+fun TopicCard(topic: UnTopic, onNavigateToTopicView: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { /* Action au clic sur le topic */ },
+            .clickable {
+                selectedTopic = topic
+                onNavigateToTopicView()
+            },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -409,7 +514,7 @@ fun TopicCard(topic: Topic) {
                 // Auteur
                 Text(
                     text = "Par ${topic.author}",
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
 
@@ -442,6 +547,7 @@ fun TopicCard(topic: Topic) {
             )
         }
     }
+
 }
 
 @Composable
@@ -478,7 +584,7 @@ fun DrawerContent(onCloseDrawer: () -> Unit) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
+                .padding(bottom = 15.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
             )
@@ -599,4 +705,31 @@ fun BottomNavigation() {
             }
         }
     }
+}
+
+
+
+//TEST PREVIEW
+@Preview(showBackground = true)
+@Composable
+fun PreviewTopicCard(){
+
+    val sampleTopics = listOf(
+        UnTopic("Que pensez de ces SALAUDS d'OP qui poste une question", "Sharpeur", 8, "29/09/2025"),
+        UnTopic("La DROITE en 2025 :rire:", "GermanQueen", 8, "04:07:08")
+    )
+
+    MyAppTheme {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            sampleTopics.forEach { topic ->
+                TopicCard(topic = topic, { })
+            }
+        }
+    }
+
 }
