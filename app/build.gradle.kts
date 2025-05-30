@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation("org.jsoup:jsoup:1.17.2")
     implementation("androidx.navigation:navigation-compose:2.6.0")
+    implementation("io.coil-kt:coil-compose:2.4.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

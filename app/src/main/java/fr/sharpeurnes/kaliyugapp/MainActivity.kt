@@ -92,15 +92,24 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-var selectedTopic = UnTopic("Imagine le titre il est grave long aya", "AuteurTest", 10, "01:01:01")
+data class UnTopic(
+    val title: String,
+    val author: String,
+    val replies: Int,
+    val lastActivity: String,
+    val topicId: String
+)
+
+var selectedTopic = UnTopic("Imagine le titre il est grave long aya", "AuteurTest", 10, "01:01:01", "xd")
 
 @Composable
 fun MyAppTheme(content: @Composable () -> Unit) {
     val darkColors = darkColorScheme(
         primary = Color(0xFF6C63FF),
         secondary = Color(0xFF03DAC6),
-        background = Color(0xFF121212),
-        surface = Color(0xFF1F1F1F),
+        background = Color(0xFF1a1a1a),
+        surface = Color(0xFF1f1f1f),
+        surfaceVariant = Color(0xFF262626),
         onPrimary = Color.White,
         onSecondary = Color.Black,
         onBackground = Color.White,
@@ -410,13 +419,6 @@ fun MainContentArea(onNavigateToTopicView: () -> Unit, refreshTrigger: Int) {
     }
 }
 
-data class UnTopic(
-    val title: String,
-    val author: String,
-    val replies: Int,
-    val lastActivity: String
-)
-
 
 //ICI QU'ON BOSSE
 suspend fun fetchTopics(): List<UnTopic> = withContext(Dispatchers.IO) {
@@ -430,7 +432,7 @@ suspend fun fetchTopics(): List<UnTopic> = withContext(Dispatchers.IO) {
         val topics = mutableListOf<UnTopic>()
 
         // Récupère tous les div.topic-inner dans ul.liste-topics
-        val topicElements = doc.select("ul.liste-topics div.topic-inner")
+        val topicElements = doc.select("ul.liste-topics a.a-topic")
 
         for (topicElement in topicElements) {
             val title = topicElement.selectFirst("div.titre-topic")?.text() ?: "Titre non disponible"
@@ -444,13 +446,20 @@ suspend fun fetchTopics(): List<UnTopic> = withContext(Dispatchers.IO) {
             val author = topicElement.selectFirst("span.auteur")?.text() ?: "Auteur"
             val date = topicElement.selectFirst("time.date-post-topic")?.text() ?: "00/00/00"
 
+            val href = topicElement.attr("href") ?: "prblemUrl"
+            val topicId = href.replace(Regex("/forums/"), "")
+
+            //Log.d("SHARP", "topicid: $topicId")
+
+
 
             topics.add(
                 UnTopic(
                     title = cleanTitle,
                     author = author,
                     replies = replyNombre,
-                    lastActivity = date
+                    lastActivity = date,
+                    topicId = topicId
                 )
             )
         }
@@ -465,14 +474,14 @@ suspend fun fetchTopics(): List<UnTopic> = withContext(Dispatchers.IO) {
 
 fun getTestTopics(): List<UnTopic> {
     return listOf(
-        UnTopic("Topic de test", "Sharpeur", 8, "29/09/2025"),
-        UnTopic("Règles du forum", "odoki", 0, "08/11/2022"),
-        UnTopic("J'annonce mon grand retour sur le forum blabla 18-25", "Seuritima", 3, "21:20:33"),
-        UnTopic("Je loue des comptes jvc premium", "Kheyousanssel", 7, "21:20:33"),
-        UnTopic("Chaud: Brigitte a mis une PATATE à Macron dans l'avion", "revolutionin", 1891, "21:20:32"),
-        UnTopic("[NOFAKE] je suis à kaboul, posez vos questions", "tournevistorx", 35, "21:20:32"),
-        UnTopic("[CANAL+ FOOT] 🏆 🧤 Finale de Conference League 🏆 🧤 🟢 Betis Seville vs Chelsea🔵", "AftynRoseENT", 190, "21:20:32"),
-        UnTopic("[MARLOU] WEEK END de 4 JOURS, ça BOIT QUOI ce SOIR ?", "JackUltraCity", 73, "21:20:32")
+        UnTopic("Topic de test", "Sharpeur", 8, "29/09/2025", "topcid"),
+        UnTopic("Règles du forum", "odoki", 0, "08/11/2022", "topcid"),
+        UnTopic("J'annonce mon grand retour sur le forum blabla 18-25", "Seuritima", 3, "21:20:33", "topcid"),
+        UnTopic("Je loue des comptes jvc premium", "Kheyousanssel", 7, "21:20:33", "topcid"),
+        UnTopic("Chaud: Brigitte a mis une PATATE à Macron dans l'avion", "revolutionin", 1891, "21:20:32", "topcid"),
+        UnTopic("[NOFAKE] je suis à kaboul, posez vos questions", "tournevistorx", 35, "21:20:32", "topcid"),
+        UnTopic("[CANAL+ FOOT] 🏆 🧤 Finale de Conference League 🏆 🧤 🟢 Betis Seville vs Chelsea🔵", "AftynRoseENT", 190, "21:20:32", "topcid"),
+        UnTopic("[MARLOU] WEEK END de 4 JOURS, ça BOIT QUOI ce SOIR ?", "JackUltraCity", 73, "21:20:32", "topcid")
     )
 }
 
@@ -715,8 +724,8 @@ fun BottomNavigation() {
 fun PreviewTopicCard(){
 
     val sampleTopics = listOf(
-        UnTopic("Que pensez de ces SALAUDS d'OP qui poste une question", "Sharpeur", 8, "29/09/2025"),
-        UnTopic("La DROITE en 2025 :rire:", "GermanQueen", 8, "04:07:08")
+        UnTopic("Que pensez de ces SALAUDS d'OP qui poste une question", "Sharpeur", 8, "29/09/2025", "topcid"),
+        UnTopic("La DROITE en 2025 :rire:", "GermanQueen", 8, "04:07:08", "topcid")
     )
 
     MyAppTheme {
