@@ -9,9 +9,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import android.util.Log
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.copy
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,12 +34,12 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.BottomAppBar
-import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextField
@@ -53,14 +56,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import coil.ImageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -68,6 +73,11 @@ import org.jsoup.Jsoup
 import coil.compose.AsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
+import org.jsoup.nodes.Element
+import org.jsoup.nodes.Node
+import org.jsoup.nodes.TextNode
+import kotlin.text.append
+
 
 data class UnPost(
     val id: String,
@@ -117,7 +127,7 @@ fun TopicContent(posts: List<UnPost>, onBack: () -> Unit){
         ) { innerPadding ->
             LazyColumn(
                 contentPadding = innerPadding,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ){
 
                 items(posts) { post ->
@@ -128,36 +138,6 @@ fun TopicContent(posts: List<UnPost>, onBack: () -> Unit){
     }
 
 
-
-//    Box(
-//        modifier = Modifier
-//            .fillMaxSize()
-//            .background(Color(0xFF121212))
-//    ){
-//        MyAppTheme {
-//
-//            Box(
-//                modifier = Modifier
-//                    .fillMaxSize()
-//                    .background(MaterialTheme.colorScheme.background)
-//            ){
-//                Column(
-//                    Modifier.fillMaxSize()
-//                ) {
-//
-//
-//
-//
-//
-//
-//
-//
-//                }
-//
-//
-//            }
-//        }
-//    }
 
 }
 
@@ -226,8 +206,17 @@ fun TopicBottomBar(){
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(2.dp)
         ){
+
+            IconButton(onClick = { /* action */ }) {
+                Icon(
+                    painter = painterResource(id = R.drawable.risibank_logo),
+                    contentDescription = "Logo Risibank",
+                    modifier = Modifier.size(24.dp),
+                    tint = Color.Unspecified
+                )
+            }
+
             TextField(
                 value = message,
                 onValueChange = { message = it },
@@ -255,6 +244,7 @@ fun TopicBottomBar(){
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PostCard(post: UnPost){
 //CARD TEST
@@ -324,22 +314,15 @@ fun PostCard(post: UnPost){
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
-
-
             }
 
+            //ICI LE TEXTE
+            MessageDisplayFinal(post.msg)
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-//                Text(
-//                    text = post.msg,
-//                    fontSize = 14.sp,
-//                    maxLines = 3,
-//                    color = Color(0xFFd1d1d1)
-//                )
-                InlineMessageText(post.msg)
-            }
+
+        }
+
+
             Spacer(Modifier.width(4.dp))
             Text(
                 text = post.id,
@@ -351,8 +334,6 @@ fun PostCard(post: UnPost){
         }
     }
 
-    //FIN CARD TEST
-}
 
 suspend fun fetchPosts(context: Context): List<UnPost> = withContext(Dispatchers.IO) {
     try {
@@ -413,154 +394,176 @@ suspend fun fetchPosts(context: Context): List<UnPost> = withContext(Dispatchers
 }
 
 
-fun extractMessageRaw(element: org.jsoup.nodes.Element?): String{
-    if(element == null) return ""
+fun extractMessageRaw(element: Element?): String {
+    if (element == null) return ""
 
     val sb = StringBuilder()
 
-    fun processNode(node: org.jsoup.nodes.Node){
-        when(node){
-            is org.jsoup.nodes.TextNode -> sb.append(node.text())
-            is org.jsoup.nodes.Element -> {
-                when(node.tagName()) {
+    fun processNode(node: Node) {
+        when (node) {
+            is TextNode -> {
+                // Ajouter le texte du nœud. Envisager de normaliser les espaces si nécessaire.
+                // Par exemple, remplacer plusieurs espaces par un seul, ou .trim() si
+                // vous ne voulez pas d'espaces en début/fin de chaque segment de TextNode.
+                // Pour l'instant, gardons-le simple.
+                sb.append(node.text())
+            }
+            is Element -> {
+                when (node.tagName().lowercase()) { // Mettre en minuscule pour la robustesse
                     "a" -> {
-                        //Remplace le lien par son href (URL)
-                        val href = node.attr("href")
-                        if(href.isNotBlank()) sb.append(href)
-                        node.childNodes().forEach { processNode(it) }
+                        // Pour les liens <a> qui contiennent une image <img>,
+                        // on veut généralement l'URL de l'image <img> plutôt que l'attribut href du <a>,
+                        // surtout si href est une page de destination et non l'image directe.
+                        // Cependant, dans votre cas, href EST l'image directe.
+                        // On doit éviter de dupliquer si <img> est un enfant.
+
+                        // Si le lien a une image enfant directe qui est la source principale
+                        val imgChild = node.selectFirst("img")
+                        if (imgChild != null) {
+                            val imgSrc = imgChild.attr("src") // Ou data-src, ou autre selon le site
+                            if (imgSrc.isNotBlank()) {
+                                sb.append(imgSrc) // On prend le src de l'img interne
+                            } else { // Fallback sur le href du <a> si l'img n'a pas de src
+                                val href = node.attr("href")
+                                if (href.isNotBlank() && href.matches(Regex(".*\\.(png|jpg|jpeg|gif)$"))) {
+                                    sb.append(href)
+                                }
+                            }
+                            // Important: Ne pas appeler node.childNodes().forEach ici si on a traité l'img
+                            // pour éviter de traiter à nouveau l'img enfant.
+                        } else {
+                            // Si le <a> n'a pas d'enfant <img>, on peut prendre son href s'il ressemble à une image
+                            // et ensuite traiter ses enfants (qui pourraient être du texte)
+                            val href = node.attr("href")
+                            if (href.isNotBlank() && href.matches(Regex(".*\\.(png|jpg|jpeg|gif)$"))) {
+                                sb.append(href)
+                            }
+                            node.childNodes().forEach { processNode(it) } // Traiter les enfants texte d'un lien
+                        }
                     }
                     "img" -> {
-                        // Remplace l'image par son SRC (URL)
+                        // Cette partie pourrait ne plus être atteinte si les <img> sont toujours dans des <a>
+                        // et que la logique "a" ci-dessus les capture.
+                        // Mais gardons-la pour les <img> autonomes.
                         val src = node.attr("src")
-                        if(src.isNotBlank()) sb.append(src)
+                        if (src.isNotBlank()) {
+                            sb.append(src)
+                        }
                     }
-                    else -> node.childNodes().forEach { processNode(it) }
+                    "br" -> {
+                        // Ajouter un saut de ligne pour les balises <br>
+                        if (sb.isNotEmpty() && sb.last() != '\n') { // Évite les \n multiples ou en début
+                            sb.append("\n")
+                        }
+                    }
+                    else -> {
+                        // Pour les autres éléments, parcourir leurs enfants
+                        node.childNodes().forEach { processNode(it) }
+                    }
                 }
             }
         }
     }
 
-    element.select("p").forEachIndexed { idx, p ->
+    // Traiter les enfants directs de l'élément 'message' (par exemple, s'il n'y a pas de <p>)
+    // ou spécifiquement les <p> comme vous le faisiez.
+    // Si la structure est toujours <div class="message"><p>...</p></div>, votre approche originale pour les <p> est bonne.
+    // Si le contenu peut aussi être directement dans <div class="message"> sans <p>, il faut ajuster.
+
+    // En supposant que le contenu pertinent est toujours dans des <p> à l'intérieur de l'élément passé
+    val paragraphs = element.select("p")
+    paragraphs.forEachIndexed { idx, p ->
         p.childNodes().forEach { processNode(it) }
-        if(idx < element.select("p").size - 1) sb.append("\n")
-    }
-
-    return sb.toString()
-}
-
-//fun parseMessageToPars(message: String): List<Any>{
-//    val regex = Regex("""https://image\.noelshack\.com/\S+\.(png|jpg)""")
-//    val parts = mutableListOf<Any>()
-//    var lastIndex = 0
-//
-//    regex.findAll(message).forEach { matchResult ->
-//        val range = matchResult.range
-//        if(range.first > lastIndex){
-//            //text avant le lien
-//            parts.add(message.substring(lastIndex, range.first))
-//        }
-//        //lien image
-//        parts.add(matchResult.value)
-//        lastIndex = range.last + 1
-//    }
-//    if(lastIndex < message.length){
-//        parts.add(message.substring(lastIndex))
-//    }
-//    return parts
-//}
-//
-//@Composable
-//fun MessageWithImages(postMsg: String){
-//    val parts = parseMessageToPars(postMsg)
-//
-//    Column {
-//        parts.forEach { part ->
-//            when(part){
-//                is String -> {
-//                    if(part.startsWith("https://image.noelshack.com") &&
-//                        (part.endsWith(".png") || part.endsWith(".jpg"))){
-//                        //Affiche l'image
-//                        AsyncImage(
-//                            model = part,
-//                            contentDescription = null,
-//                            modifier = Modifier
-//                                .size(width = 68.dp, height = 51.dp),
-//                            contentScale = ContentScale.Crop
-//                        )
-//                    } else {
-//                        //afiche du text Normal
-//                        Text(
-//                            text = part,
-//                            fontSize = 14.sp,
-//                            color = Color(0xFFd1d1d1)
-//                        )
-//                    }
-//                }
-//            }
-//        }
-//    }
-//}
-
-@Composable
-fun parseMessageToAnnotatedString(message: String): Pair<AnnotatedString, Map<String, InlineTextContent>> {
-    val regex = Regex("""https://image\.noelshack\.com/\S+\.(png|jpg)""")
-    val builder = AnnotatedString.Builder()
-    val inlineContents = mutableMapOf<String, InlineTextContent>()
-    var lastIndex = 0
-    var imgIndex = 0
-
-    regex.findAll(message).forEach { matchResult ->
-        val range = matchResult.range
-        if (range.first > lastIndex) {
-            builder.append(message.substring(lastIndex, range.first))
+        if (idx < paragraphs.size - 1) {
+            if (sb.isNotEmpty() && sb.last() != '\n') { // Évite les \n multiples
+                sb.append("\n")
+            }
         }
-        val tag = "img$imgIndex"
-        builder.appendInlineContent(tag, "[img]")
+    }
 
-        inlineContents[tag] = InlineTextContent(
-            Placeholder(
-                width = 68.sp,
-                height = 51.sp,
-                placeholderVerticalAlign = PlaceholderVerticalAlign.Center
-            )
-        ) {
-            AsyncImage(
-                model = matchResult.value,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+    // Nettoyage final pour enlever les sauts de ligne multiples et les espaces superflus
+    var result = sb.toString()
+    result = result.replace(Regex("\\n{2,}"), "\n") // Remplace 2+ sauts de ligne par un seul
+    result = result.replace(Regex(" {2,}"), " ")    // Remplace 2+ espaces par un seul
+    return result.trim() // Enlève les espaces/sauts de ligne en début/fin
+}
+
+
+sealed class MessagePart {
+    data class Text(val text: String) : MessagePart()
+    data class Image(val url: String, val type: ImageType = ImageType.Sticker) : MessagePart()
+}
+
+enum class ImageType {
+    Sticker,
+    Emoji
+}
+
+fun parseMessage(message: String): List<MessagePart> {
+    val parts = mutableListOf<MessagePart>()
+    val tokenizerRegex = Regex("(https?://\\S+\\.(?:png|jpg|jpeg|gif|webp))|([^\\s]+)|(\\s+)")
+
+    tokenizerRegex.findAll(message).forEach { matchResult ->
+        val url = matchResult.groups[1]?.value
+        val word = matchResult.groups[2]?.value
+        val space = matchResult.groups[3]?.value
+
+        when {
+            url != null -> {
+                val imageType = if (url.contains("risibank") || url.contains("noelshack")) ImageType.Sticker else ImageType.Emoji
+                parts.add(MessagePart.Image(url, imageType))
+            }
+            word != null -> {
+                parts.add(MessagePart.Text(word))
+            }
+            space != null -> {
+                parts.add(MessagePart.Text(space))
+            }
         }
-
-        imgIndex++
-        lastIndex = range.last + 1
     }
-
-    if (lastIndex < message.length) {
-        builder.append(message.substring(lastIndex))
-    }
-
-    return Pair(builder.toAnnotatedString(), inlineContents)
+    return parts
 }
 
-
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun InlineMessageText(message: String) {
-    val (text, inlineContents) = parseMessageToAnnotatedString(message)
+fun MessageDisplayFinal(message: String, modifier: Modifier = Modifier) {
+    val parts = parseMessage(message)
 
-    Text(
-        text = text,
-        inlineContent = inlineContents,
-        fontSize = 14.sp,
-        color = Color(0xFFd1d1d1)
-    )
+    FlowRow(
+        modifier = modifier
+            .fillMaxWidth()
+            //.border(2.dp, Color.Red), // débogage
+    ) {
+        parts.forEach { part ->
+            when (part) {
+                is MessagePart.Text -> Text(
+                    text = part.text, // Contient soit un mot, soit des espaces
+                    fontSize = 16.sp,
+                    modifier = Modifier
+                        .align(Alignment.Bottom) // Important pour aligner mots et images
+                        //.border(1.dp, Color.Blue)
+                )
+                is MessagePart.Image -> AsyncImage(
+                    model = part.url,
+                    contentDescription = part.type.name,
+                    placeholder = painterResource(R.drawable.sticker_test),
+                    modifier = when (part.type) {
+                        ImageType.Sticker -> Modifier.size(width = 64.dp, height = 56.dp)
+                        ImageType.Emoji -> Modifier.size(18.dp) // Emojis souvent carrés
+                    }
+                        .align(Alignment.Bottom) // Aligner avec le bas des mots
+                        //.border(1.dp, Color.Green)
+                )
+            }
+        }
+    }
 }
-
 
 fun getTestPosts(): List<UnPost> {
     return listOf(
-        UnPost("xdidxd", "authorix", "5", "01:02:03", "Ceci est le message ahi https://image.noelshack.com/fichiers/2020/27/6/1593818861-ht0hwmqi.png test", "null"),
-        UnPost("2id", "authorixed", "50", "01:02:03", "Voila un message un peu plus long on va voir si ça rentre ou non", "null")
+        UnPost("xdidxd", "SharpeurNes", "77", "01:02:03", "Le message doit être giga long pour tester si y'a un overlap  https://image.noelshack.com/fichiers/2020/27/6/1593818861-ht0hwmqi.png test", "null"),
+        UnPost("2id", "GermanQueen", "5", "01:02:03", "Mesage pour tester un emoji sur deux ligne, uooooooh cunny  https://image.jeuxvideo.com/smileys_img/11.gif", "null"),
+        UnPost("2id", "Randomax", "1", "01:02:03", "Court https://image.noelshack.com/fichiers/2020/27/6/1593818861-ht0hwmqi.png", "null")
     )
 }
 

@@ -1,12 +1,12 @@
 package fr.sharpeurnes.kaliyugapp
 
+import android.graphics.Paint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,7 +54,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -72,8 +71,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.util.Log
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -374,7 +380,6 @@ fun MainContentArea(onNavigateToTopicView: () -> Unit, refreshTrigger: Int) {
         onRefresh = { onRefresh() },
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
     ) {
 
         when {
@@ -402,7 +407,7 @@ fun MainContentArea(onNavigateToTopicView: () -> Unit, refreshTrigger: Int) {
 
             else -> {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
 
                     items(topics) { topic ->
@@ -488,6 +493,7 @@ fun getTestTopics(): List<UnTopic> {
 @Composable
 fun TopicCard(topic: UnTopic, onNavigateToTopicView: () -> Unit) {
     Card(
+        shape = RectangleShape,
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
@@ -499,63 +505,80 @@ fun TopicCard(topic: UnTopic, onNavigateToTopicView: () -> Unit) {
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Titre du topic
-            Text(
-                text = topic.title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Informations du topic
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .width(30.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Auteur
-                Text(
-                    text = "Par ${topic.author}",
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                val repliesCount = topic.replies.toInt() ?: 0
+                val iconTint = if(repliesCount >= 20) Color(0xFFff4d39) else Color(0xFFffcc01)
+                Icon(
+                    imageVector = Icons.Default.Email,
+                    contentDescription = "Réponses",
+                    modifier = Modifier.size(22.dp),
+                    tint = iconTint
                 )
+            }
 
-                // Nombre de réponses
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Réponses",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${topic.replies}",
+                        text = buildAnnotatedString {
+                            append(topic.title)
+                            withStyle(style = SpanStyle(color = Color(0xFF919191))) {
+                                append(" (${topic.replies})")
+                            }
+                        },
                         fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFd6d6d6),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(0.7f),
+                        lineHeight = 20.sp
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = topic.author,
+                        fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = topic.lastActivity,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Dernière activité
-            Text(
-                text = "Dernière activité: ${topic.lastActivity}",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
         }
+
+
+
+
+
+
     }
+
+
+
+
 
 }
 
@@ -725,18 +748,17 @@ fun PreviewTopicCard(){
 
     val sampleTopics = listOf(
         UnTopic("Que pensez de ces SALAUDS d'OP qui poste une question", "Sharpeur", 8, "29/09/2025", "topcid"),
-        UnTopic("La DROITE en 2025 :rire:", "GermanQueen", 8, "04:07:08", "topcid")
+        UnTopic("La DROITE en 2025 :rire:", "GermanQueen", 20, "04:07:08", "topcid")
     )
 
     MyAppTheme {
         Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
         ) {
             sampleTopics.forEach { topic ->
-                TopicCard(topic = topic, { })
+                TopicCard(topic = topic) { }
             }
         }
     }
