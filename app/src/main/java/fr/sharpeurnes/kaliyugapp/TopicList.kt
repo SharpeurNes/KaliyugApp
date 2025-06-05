@@ -1,6 +1,5 @@
 package fr.sharpeurnes.kaliyugapp
 
-import android.graphics.Paint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,12 +27,10 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -106,7 +102,6 @@ data class UnTopic(
     val topicId: String
 )
 
-var selectedTopic = UnTopic("Imagine le titre il est grave long aya", "AuteurTest", 10, "01:01:01", "xd")
 
 @Composable
 fun MyAppTheme(content: @Composable () -> Unit) {
@@ -128,6 +123,11 @@ fun MyAppTheme(content: @Composable () -> Unit) {
     )
 }
 
+var selectedTopic = UnTopic("Imagine le titre il est grave long aya", "AuteurTest", 10, "01:01:01", "xd")
+var goBack: () -> Unit = {}
+var selectedProfile = UnUser("Username", null)
+var openMyProfile: () -> Unit = {}
+
 @Composable
 fun MyApp(){
     val navController = rememberNavController()
@@ -137,6 +137,12 @@ fun MyApp(){
         startDestination = "mainContent",
         modifier = Modifier.fillMaxSize()
     ){
+        goBack = { navController.popBackStack() }
+        openMyProfile = {
+            selectedProfile.username = "GermanQueen"
+            navController.navigate("profileView/")
+        }
+
         composable("mainContent"){
             MainScreen(
                 onNavigateToTopicView = {
@@ -145,7 +151,14 @@ fun MyApp(){
             )
         }
         composable("topicView/"){ backStackEntry ->
-            TopicWindow() { navController.popBackStack() }
+            TopicWindow(
+                onClickProfile = {
+                    navController.navigate("profileView/")
+                }
+            )
+        }
+        composable("profileView/"){ backStackEntry ->
+            ProfileView()
         }
     }
 }
@@ -667,7 +680,11 @@ fun DrawerContent(onCloseDrawer: () -> Unit) {
             DrawerMenuItem(
                 title = title,
                 icon = icon,
-                onClick = { /* Handle menu item click */ }
+                onClick = {
+                    if(title == "Profil"){
+                        openMyProfile()
+                    }
+                }
             )
         }
     }

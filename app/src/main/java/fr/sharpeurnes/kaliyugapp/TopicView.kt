@@ -9,8 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import android.util.Log
-import androidx.compose.animation.core.copy
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,15 +16,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.InlineTextContent
-import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBox
@@ -39,7 +34,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextField
@@ -54,18 +48,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.Placeholder
-import androidx.compose.ui.text.PlaceholderVerticalAlign
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import coil.ImageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -76,7 +65,6 @@ import coil.request.ImageRequest
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
-import kotlin.text.append
 
 
 data class UnPost(
@@ -88,8 +76,12 @@ data class UnPost(
     val ppUrl: String,
 )
 
+var clickProfile: () -> Unit = {}
+
 @Composable
-fun TopicWindow(onBack: () -> Unit){
+fun TopicWindow(onClickProfile: () -> Unit){
+
+    clickProfile = onClickProfile
 
     var posts by remember { mutableStateOf<List<UnPost>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -111,18 +103,18 @@ fun TopicWindow(onBack: () -> Unit){
         isLoading = false
     }
 
-    TopicContent(posts, onBack)
+    TopicContent(posts)
 
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopicContent(posts: List<UnPost>, onBack: () -> Unit){
+fun TopicContent(posts: List<UnPost>){
 
     MyAppTheme {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            topBar = { TopicTopBar(onBack) },
+            topBar = { TopicTopBar() },
             bottomBar = { TopicBottomBar() }
         ) { innerPadding ->
             LazyColumn(
@@ -143,7 +135,7 @@ fun TopicContent(posts: List<UnPost>, onBack: () -> Unit){
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopicTopBar(onBack: () -> Unit) {
+fun TopicTopBar() {
 
     TopAppBar(
         title = {
@@ -165,7 +157,7 @@ fun TopicTopBar(onBack: () -> Unit) {
         navigationIcon = {
             IconButton(
                 onClick = {
-                    onBack()
+                    goBack()
                 }
             ) {
                 Icon(
@@ -265,11 +257,21 @@ fun PostCard(post: UnPost){
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if(post.ppUrl != "null"){
-                    AsyncImage(
-                        model = post.ppUrl,
-                        contentDescription = "PP User",
-                        modifier = Modifier.size(45.dp)
-                    )
+                    Box(
+                        modifier = Modifier.clickable(
+                            onClick = {
+                                selectedProfile = UnUser(post.author, post.ppUrl)
+                                clickProfile()
+                            }
+                        )
+                    ){
+                        AsyncImage(
+                            model = post.ppUrl,
+                            contentDescription = "PP User",
+                            modifier = Modifier.size(45.dp),
+                            placeholder = painterResource(R.drawable.profile_icon)
+                        )
+                    }
                 } else {
                     Icon(
                         imageVector = Icons.Default.AccountBox,
@@ -571,5 +573,5 @@ fun getTestPosts(): List<UnPost> {
 @Preview(showBackground = true)
 @Composable
 fun PreviewTopic(){
-    TopicContent(getTestPosts()) { }
+    TopicContent(getTestPosts())
 }
